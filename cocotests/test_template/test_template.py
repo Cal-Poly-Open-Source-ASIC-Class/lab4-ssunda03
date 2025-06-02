@@ -68,7 +68,8 @@ async def read(dut):
 
     await rd_clk_edge_n(dut)
     dut.i_rd.value = 1
-    await rd_clk_edge_p(dut)
+    await rd_clk_edge_n(dut)
+    dut.i_rd.value = 0
     data = int(dut.o_rdata.value)
     await rd_clk_edge_n(dut)
     dut.i_rd.value = 0

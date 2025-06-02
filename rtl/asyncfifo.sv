@@ -1,4 +1,4 @@
-module AsyncFIFO (
+module asyncfifo (
     input wire i_wclk,
     input wire i_rclk,
 
@@ -9,7 +9,7 @@ module AsyncFIFO (
     input wire i_rd,
 
     input wire [31:0] i_wdata,
-    output wire [31:0] o_rdata,
+    output reg [31:0] o_rdata,
 
     output wire o_wfull,
     output wire o_rempty
@@ -28,7 +28,7 @@ module AsyncFIFO (
     wire [ADRW:0] rbin_next;
     wire [ADRW:0] rgray_next;
 
-    reg  [31:0] mem [0:(1 << ADRW)-1];
+    logic  [31:0] mem [0:(1 << ADRW)-1];
 
     reg [ADRW:0] rq1_wgray;
     reg [ADRW:0] rq2_wgray;
@@ -48,9 +48,11 @@ module AsyncFIFO (
         wq1_rgray = 0;
         wq2_rgray = 0;
 
-        for (int i = 0; i < (1 << ADRW); i++) begin
-            mem[i] = 0;
-        end
+        o_rdata = 0;
+
+        // for (int i = 0; i < (1 << ADRW); i++) begin
+        //     mem[i] = 32'b0;
+        // end
     end
 
     
@@ -58,7 +60,7 @@ module AsyncFIFO (
     assign we = i_wr & !o_wfull;
     assign wgray_next = wbin_next ^ (wbin_next >> 1);
     assign wbin_next = wbin + {{(ADRW-1){1'b0}},we};
-    always_ff @( posedge i_wclk or negedge i_wrst_n ) begin
+    always_ff @( posedge i_wclk ) begin
         if (!i_wrst_n) begin
             wbin <= 0;
             wgray <= 0;
@@ -74,7 +76,7 @@ module AsyncFIFO (
     end
 
     // write domain --> read domain
-    always_ff @( posedge i_rclk or negedge i_rrst_n ) begin
+    always_ff @( posedge i_rclk ) begin
         if (!i_rrst_n) begin
             { rq2_wgray, rq1_wgray } <= 0;
         end
@@ -83,14 +85,11 @@ module AsyncFIFO (
         end
     end
 
-
-    assign o_rdata = mem[rbin[ADRW-1:0]];
-
     assign	o_rempty = (rq2_wgray == rgray);
     assign re = i_rd & !o_rempty;
     assign rgray_next = rbin_next ^ (rbin_next >> 1);
     assign rbin_next = rbin + {{(ADRW-1){1'b0}},re};
-    always_ff @( posedge i_rclk or negedge i_rrst_n ) begin
+    always_ff @( posedge i_rclk ) begin
         if (!i_rrst_n) begin
             rbin <= 0;
             rgray <= 0;
@@ -99,10 +98,14 @@ module AsyncFIFO (
             rbin <= rbin_next;
             rgray <= rgray_next; 
         end
+        
+        if (re) begin
+            o_rdata <= mem[rbin[ADRW-1:0]];
+        end
     end
 
     // read domain --> write domain
-    always_ff @( posedge i_wclk or negedge i_wrst_n ) begin
+    always_ff @( posedge i_wclk) begin
         if (!i_wrst_n) begin
             { wq2_rgray, wq1_rgray } <= 0;
         end
